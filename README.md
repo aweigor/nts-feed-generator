@@ -1,113 +1,37 @@
-1. System Overview
-A single Go application with two independent modules that can be separated later.
+# NTS Radio RSS / JSON Feed Generator
 
-2. Module Architecture
-text
-┌─────────────────────────────────────────────────────────┐
-│                    Application                          │
-├─────────────────────────────────────────────────────────┤
-│                                                         │
-│  ┌─────────────────┐         ┌─────────────────────┐  │
-│  │                 │         │                     │  │
-│  │   Feed Module   │────────▶│ Tracklist Module    │  │
-│  │                 │  calls  │ (NTS only)          │  │
-│  │  - RSS/JSON     │         │                     │  │
-│  │  - HTTP server  │         │  - Fetches NTS      │  │
-│  │  - Scheduler    │         │    tracklists       │  │
-│  │                 │         │  - Simple cache     │  │
-│  └─────────────────┘         └─────────────────────┘  │
-│                                                         │
-└─────────────────────────────────────────────────────────┘
-3. Module Responsibilities
-Feed Module
-Fetches shows/episodes from NTS API
+A web server for generating RSS / JSON feeds from NTS Radio, configurable via the Linux command line. Supports tracklist loading by URL.
 
-Generates RSS and JSON feeds
+## Table of Contents
 
-Calls Tracklist Module to get tracklist URLs
+- [NTS Radio RSS / JSON Feed Generator](#nts-radio-rss--json-feed-generator)
+  - [Table of Contents](#table-of-contents)
+  - [Configuration](#configuration)
+  - [Feed Structure](#feed-structure)
+    - [Endpoints](#endpoints)
+    - [Response Structure](#response-structure)
+      - [1. RSS](#1-rss)
+      - [2. JSON](#2-json)
+    - [URL Query Parameters](#url-query-parameters)
+  - [API Reference](#api-reference)
+    - [1. Episode Info](#1-episode-info)
+    - [2. Episode Tracklist](#2-episode-tracklist)
+  - [Types](#types)
+    - [Tracklist Item](#tracklist-item)
+    - [Episode](#episode)
+    - [Genre](#genre)
+    - [Media](#media)
+    - [AudioSource](#audiosource)
+  - [Error Codes](#error-codes)
 
-Serves feeds via HTTP
+## Configuration
 
-Tracklist Module (NTS Only)
-Fetches tracklists from NTS API
-
-Simple cache for tracklists
-
-Returns tracklist data or URL
-
-4. Simple Flow
-text
-1. HTTP request for feed
-2. Feed module builds episode list
-3. For each episode:
-   - Calls tracklist module: GetTracklist(episodeID)
-   - Tracklist module checks NTS API
-   - Returns tracklist data (or empty)
-4. Feed module includes tracklist URL in RSS/JSON
-5. Returns feed to client
-5. Module Interface
-go
-// Tracklist module exposes this interface
-type TracklistProvider interface {
-    GetTracklist(episodeID string) (*Tracklist, error)
-}
-6. Module Structure
-text
-internal/
-├── feed/
-│   ├── generator.go    # RSS/JSON generation
-│   ├── handlers.go     # HTTP endpoints
-│   └── scheduler.go    # Periodic refresh
-│
-├── tracklist/           # ← NTS only, separate module
-│   ├── provider.go     # Implements interface
-│   ├── client.go       # Calls NTS API
-│   └── cache.go        # Simple in-memory cache
-│
-└── nts/
-    └── client.go       # Shared NTS API client
-
-8. What Tracklist Module Does Have
-✅ NTS API client for tracklist endpoint
-
-✅ Simple in-memory cache (TTL: 1 hour)
-
-✅ Error handling for missing tracklists
-
-✅ Clean interface for feed module
-
-9. Data Format
-Tracklist Module Returns:
-go
-type Tracklist struct {
-    EpisodeID   string
-    Source      string  // Always "nts"
-    Tracks      []Track
-    FetchedAt   time.Time
-}
-Feed Module Uses:
-go
-// RSS includes tracklist_url
-// JSON includes tracklist_url
-// Both point to: /api/episodes/{id}/tracklist
-10. Future Separation
-Tracklist Module Can Be Extracted Because:
-Has clear interface
-
-No dependencies on feed module
-
-Only depends on NTS API
-
-Self-contained caching
-
-To Make It a Separate Service Later:
-text
-Current: internal/tracklist/ (local package)
-Future: tracklist-service/ (separate repo)
-11. Configuration
-yaml
+```yaml
 nts:
   api_url: "https://www.nts.live/api/v2/"
+
+api:
+  public_url: "https://nts-feed/api" # Public server address
 
 tracklist:
   cache_ttl: "1h"
@@ -116,257 +40,233 @@ tracklist:
 feed:
   output_dir: "./feeds"
   include_tracklist_url: true
+```
 
+## Feed Structure
 
-Feed Structure
-1. Feed Categories (Based on NTS API)
-1.1 Per-Show Feeds
-text
-/feeds/shows/{show_id}.{xml|json}
-One feed per show
+### Endpoints
 
-Contains all episodes for that show
+| Section | Method | Path                            |
+| ------- | ------ | ------------------------------- |
+| Latest  | GET    | `/feeds/latest[?query]`         |
+| Show    | GET    | `/feeds/show/{show_id}[?query]` |
 
-Episodes sorted newest first
+### Response Structure
 
-1.2 Latest Episodes Feed
-text
-/feeds/latest.{xml|json}
-Aggregates latest episodes across all shows
+#### 1. RSS
 
-Configurable limit (e.g., 20 episodes)
+```xml
+<channel>
+  <title>Channel Title</title>
+  <link>https://www.nts.live/{channel_path}</link>
+  <description>Channel description</description>
+  <category>Channel category</category>
+  <image>Channel Image Url</image>
+  <lastBuildDate>Last Updated Date</lastBuildDate>
+  <item>
+      <title>Episode Title</title>
+      <link>https://www.nts.live/{episode_path}</link>
+      <description>Episode description</description>
+      <pubDate>2024-01-15T20:00:00Z</pubDate>
+      <enclosure url="{audio_url}" type="audio/mpeg" length="0"/>
+      <guid>episode-123</guid>
 
-Sorted by air date descending
+      <nts:show_id>Show Id</nts:show_id>
+      <nts:air_date>2024-01-15</nts:air_date>
+      <nts:duration>120</nts:duration>
 
-1.3 Live Channel Feeds
-text
-/feeds/live/1.{xml|json}
-/feeds/live/2.{xml|json}
-Current show on NTS 1 or NTS 2
+      <api:tracklist_url>Api Tracklist Url</api:tracklist_url>
+  </item>
+</channel>
+```
 
-Updates when show changes
+#### 2. JSON
 
-Single item per feed
-
-1.4 Infinite Mixtapes Feeds
-text
-/feeds/mixtape/{mixtape_id}.{xml|json}
-Each mixtape gets its own feed
-
-Continuous stream, updated regularly
-
-Examples: "slow-focus", "poolside", "4-to-the-floor"
-
-1.5 Genre Feeds
-text
-/feeds/genre/{genre}.{xml|json}
-Filter episodes by genre
-
-Examples: "jazz", "techno", "afrobeat", "disco"
-
-Episodes tagged with that genre
-
-1.6 Location Feeds
-text
-/feeds/location/{city}.{xml|json}
-Shows from specific city
-
-Examples: "london", "new-york", "tokyo"
-
-Episodes from shows broadcasting from that city
-
-1.7 Artist Spotlight Feed
-text
-/feeds/artist/{artist_name}.{xml|json}
-Search episodes where artist appears
-
-Dynamically generated on request
-
-Uses NTS tracklist search
-
-1.8 Staff Picks/Curated Feeds
-text
-/feeds/curated/staff-picks.{xml|json}
-/feeds/curated/recommended.{xml|json}
-Manually curated episodes
-
-Updated periodically
-
-Admin-controlled selection
-
-2. URL Structure
-Base Pattern
-text
-GET /feeds/{type}/{identifier}.{format}
-
-Where:
-- {type}: shows, latest, live, mixtape, genre, location, artist, curated
-- {identifier}: show_id, city, genre, artist_name, etc.
-- {format}: xml (RSS) or json
-Examples
-text
-# Show feed
-GET /feeds/shows/london-jazz.xml
-GET /feeds/shows/london-jazz.json
-
-# Latest episodes
-GET /feeds/latest.xml
-GET /feeds/latest.json
-
-# Live channel
-GET /feeds/live/1.xml
-GET /feeds/live/2.xml
-
-# Mixtape
-GET /feeds/mixtape/poolside.xml
-GET /feeds/mixtape/poolside.json
-
-# Genre
-GET /feeds/genre/jazz.xml
-GET /feeds/genre/techno.json
-
-# Location
-GET /feeds/location/tokyo.xml
-GET /feeds/location/new-york.json
-
-# Artist
-GET /feeds/artist/aphex-twin.xml
-GET /feeds/artist/bjork.json
-
-# Curated
-GET /feeds/curated/staff-picks.xml
-GET /feeds/curated/recommended.json
-3. Feed Index
-List All Available Feeds
-text
-GET /feeds
-Response:
-
-json
+```json
 {
-  "feeds": [
-    {
-      "type": "show",
-      "name": "London Jazz",
-      "url": "/feeds/shows/london-jazz.xml",
-      "json_url": "/feeds/shows/london-jazz.json"
-    },
-    {
-      "type": "show",
-      "name": "Global Roots",
-      "url": "/feeds/shows/global-roots.xml"
-    },
-    {
-      "type": "latest",
-      "name": "Latest Episodes",
-      "url": "/feeds/latest.xml"
-    },
-    {
-      "type": "live",
-      "name": "NTS 1 Live",
-      "url": "/feeds/live/1.xml"
-    },
-    {
-      "type": "mixtape",
-      "name": "Poolside",
-      "url": "/feeds/mixtape/poolside.xml"
+  "channel": {
+    "title": "Channel Title",
+    "link": "https://www.nts.live/{channel_path}",
+    "description": "Channel description",
+    "category": "Channel category",
+    "image": "Channel Image Url",
+    "lastBuildDate": "Last Updated Date",
+    "item": {
+      "title": "Episode Title",
+      "link": "https://www.nts.live/{episode_path}",
+      "description": "Episode description",
+      "pubDate": "2024-01-15T20:00:00Z",
+      "enclosure": {
+        "url": "{audio_url}",
+        "type": "audio/mpeg",
+        "length": "0"
+      },
+      "guid": "episode-123",
+      "nts:show_id": "Show Id",
+      "nts:air_date": "2024-01-15",
+      "nts:duration": "120",
+      "tracklist": [
+        {
+          "artist": "string",
+          "title": "string",
+          "uid": "string (UUID or null)",
+          "offset": "integer or null",
+          "duration": "integer or null",
+          "offset_estimate": "integer or null",
+          "duration_estimate": "integer or null",
+          "acr_id": "string or null",
+          "deezer_track_id": "integer or null",
+          "isrc_id": "string or null",
+          "musicbrainz_track_id": "string (UUID or null)"
+        }
+      ]
     }
-  ]
+  }
 }
-4. Feed Item Structure
-Common Fields for All Feed Types
-xml
-<item>
-    <title>Episode Title</title>
-    <link>https://www.nts.live/episodes/{id}</link>
-    <description>Episode description</description>
-    <pubDate>2024-01-15T20:00:00Z</pubDate>
-    <enclosure url="{audio_url}" type="audio/mpeg" length="0"/>
-    <guid>episode-123</guid>
-    
-    <!-- Custom fields -->
-    <nts:show>Show Name</nts:show>
-    <nts:air_date>2024-01-15</nts:air_date>
-    <nts:duration>120</nts:duration>
-    <nts:tracklist_url>/api/episodes/123/tracks</nts:tracklist_url>
-</item>
-5. Configuration
-yaml
-feed:
-  output_dir: "./feeds"
-  formats: ["xml", "json"]  # RSS and JSON
-  
-  latest:
-    limit: 20
-    cache_ttl: "15m"
-  
-  live:
-    update_interval: "5m"
-  
-  mixtape:
-    update_interval: "15m"
-  
-  genre:
-    enabled: true
-  
-  location:
-    enabled: true
-  
-  artist:
-    cache_ttl: "1h"
-    limit: 50
-  
-  curated:
-    enabled: true
-    manual_list: ["staff-picks", "recommended"]
-6. Module Flow
-text
-┌──────────────────────────────────────────────────────┐
-│                   Feed Module                        │
-├──────────────────────────────────────────────────────┤
-│                                                      │
-│  HTTP Request ──► Router                            │
-│                      │                              │
-│          ┌───────────┴──────────────┐              │
-│          │                          │              │
-│          ▼                          ▼              │
-│    Show Handler              Latest Handler         │
-│    Live Handler             Mixtape Handler         │
-│    Genre Handler            Location Handler        │
-│    Artist Handler           Curated Handler         │
-│          │                          │              │
-│          └───────────┬──────────────┘              │
-│                      │                              │
-│                      ▼                              │
-│              Fetch Episodes                        │
-│                      │                              │
-│                      ▼                              │
-│         Tracklist Module (NTS)                    │
-│                      │                              │
-│                      ▼                              │
-│         Generate RSS/JSON                         │
-│                      │                              │
-│                      ▼                              │
-│              HTTP Response                        │
-│                                                      │
-└──────────────────────────────────────────────────────┘
-7. Summary
-Feed Types:
+```
 
-Show feeds: One per show
+### URL Query Parameters
 
-Latest: All shows aggregated
+| Parameter  | Type     | Default | Description                                 | Example                        |
+| ---------- | -------- | ------- | ------------------------------------------- | ------------------------------ |
+| `format`   | string   | `rss`   | Response format: `rss`, `atom`, `json`      | `?format=json`                 |
+| `limit`    | integer  | `50`    | Max items per page (1–200)                  | `?limit=20`                    |
+| `offset`   | integer  | `0`     | Items to skip for pagination                | `?offset=40`                   |
+| `page`     | integer  | `1`     | Page number (alternative to `offset`)       | `?page=3`                      |
+| `since`    | datetime | —       | Items published after this date (ISO 8601)  | `?since=2026-08-01T00:00:00Z`  |
+| `before`   | datetime | —       | Items published before this date (ISO 8601) | `?before=2026-08-01T00:00:00Z` |
+| `category` | string   | —       | Filter by category / tag                    | `?category=tech`               |
+| `author`   | string   | —       | Filter by author username / ID              | `?author=johndoe`              |
+| `q`        | string   | —       | Search query in titles and content          | `?q=golang+tutorial`           |
+| `order`    | string   | `desc`  | Sort order: `desc` or `asc`                 | `?order=asc`                   |
+| `full`     | boolean  | `false` | Include full content instead of excerpts    | `?full=true`                   |
+| `callback` | string   | —       | JSONP callback function name                | `?callback=myCallback`         |
 
-Live: Current broadcasts (NTS 1, NTS 2)
+## API Reference
 
-Mixtapes: 24/7 thematic streams
+### 1. Episode Info
 
-Genre: Filtered by music genre
+`GET /shows/{show_id}/episodes/{episode_id}`
 
-Location: Filtered by city
+Returns an [Episode](#episode) with an additional `embeds` field:
 
-Artist: Search by artist name
+```json
+{
+  "embeds": {
+    "tracklist": {
+      "metadata": {
+        "resultset": {
+          "count": "integer",
+          "offset": "integer",
+          "limit": "integer"
+        }
+      },
+      "results": ["Tracklist Item"]
+    }
+  }
+}
+```
 
-Curated: Manual selections
+### 2. Episode Tracklist
 
-Format: RSS 2.0 (.xml) and JSON Feed 1.1 (.json)
+`GET /shows/{show_id}/episodes/{episode_id}/tracklist`
+
+```json
+{
+  "metadata": {
+    "resultset": { "count": "integer", "offset": "integer", "limit": "integer" }
+  },
+  "results": ["Tracklist Item"]
+}
+```
+
+## Types
+
+### Tracklist Item
+
+```json
+{
+  "artist": "string",
+  "title": "string",
+  "uid": "string (UUID) or null",
+  "offset": "integer or null",
+  "duration": "integer or null",
+  "offset_estimate": "integer or null",
+  "duration_estimate": "integer or null",
+  "acr_id": "string or null",
+  "deezer_track_id": "integer or null",
+  "isrc_id": "string or null",
+  "musicbrainz_track_id": "string (UUID) or null"
+}
+```
+
+### Episode
+
+```json
+{
+  "status": "string",
+  "updated": "datetime (ISO 8601)",
+  "name": "string",
+  "description": "string",
+  "description_html": "string (HTML)",
+  "external_links": "array",
+  "moods": "array",
+  "genres": "Genre[]",
+  "location_short": "string",
+  "location_long": "string",
+  "intensity": "string (numeric)",
+  "media": "Media",
+  "episode_alias": "string",
+  "show_alias": "string",
+  "broadcast": "datetime (ISO 8601)",
+  "mixcloud": "string (URL)",
+  "audio_sources": "AudioSource[]",
+  "brand": "object"
+}
+```
+
+### Genre
+
+```json
+{
+  "id": "string",
+  "value": "string"
+}
+```
+
+### Media
+
+```json
+{
+  "background_large": "string (URL)",
+  "background_medium_large": "string (URL)",
+  "background_medium": "string (URL)",
+  "background_small": "string (URL)",
+  "background_thumb": "string (URL)",
+  "picture_large": "string (URL)",
+  "picture_medium_large": "string (URL)",
+  "picture_medium": "string (URL)",
+  "picture_small": "string (URL)",
+  "picture_thumb": "string (URL)"
+}
+```
+
+### AudioSource
+
+```json
+{
+  "url": "string (URL)",
+  "source": "string"
+}
+```
+
+## Error Codes
+
+| Code | Status                | Description                 |
+| ---- | --------------------- | --------------------------- |
+| 200  | OK                    | Success                     |
+| 304  | Not Modified          | Feed unchanged (ETag match) |
+| 400  | Bad Request           | Invalid parameters          |
+| 404  | Not Found             | Feed or items not found     |
+| 429  | Too Many Requests     | Rate limited                |
+| 500  | Internal Server Error | Server error                |
