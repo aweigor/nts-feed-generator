@@ -27,15 +27,13 @@ type ServerProperties struct {
 }
 
 func LoadConfig() (*Config, error) {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Error loading .env file")
-		return nil, err
+	if err := godotenv.Load(); err != nil {
+		log.Println("Warning: .env file not found, falling back to environment variables")
 	}
 
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
-	viper.AddConfigPath("/")
+	viper.AddConfigPath(".")
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, err
