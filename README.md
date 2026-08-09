@@ -24,6 +24,31 @@ A web server for generating RSS / JSON feeds from NTS Radio, configurable via th
     - [AudioSource](#audiosource)
   - [Error Codes](#error-codes)
 
+## Running
+
+**Prerequisites:** Go 1.21+
+
+1. Copy the example env file and set your secret:
+   ```sh
+   cp .env.example .env
+   # edit .env and set API_SECRET
+   ```
+
+2. Run with `go run` (from the project root):
+   ```sh
+   go run ./cmd/main.go
+   ```
+
+3. Or build and run the binary:
+   ```sh
+   go build -o nts-feed-generator ./cmd/main.go
+   ./nts-feed-generator
+   ```
+
+The server starts on port `9000`. Check `GET /heartbeat` to verify it's up.
+
+> **Note:** Both `config.yaml` and `.env` must be present in the directory where you run the binary / `go run` command.
+
 ## Configuration
 
 ```yaml
