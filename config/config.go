@@ -15,15 +15,15 @@ type Config struct {
 }
 
 type AuthConfig struct {
-	Secret string `mapsructure: "secret"`
+	Secret string `mapstructure:"secret"`
 }
 
 type NtsAPIProperties struct {
-	APIV2Url string `mapsructure: "api_v2_url"`
+	APIV2Url string `mapstructure:"api_v2_url"`
 }
 
 type ServerProperties struct {
-	PublicURL string `mapsructure: "public_url"`
+	PublicURL string `mapstructure:"public_url"`
 }
 
 func LoadConfig() (*Config, error) {
