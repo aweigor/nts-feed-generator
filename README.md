@@ -116,7 +116,7 @@ feed:
     "category": "Channel category",
     "image": "Channel Image Url",
     "lastBuildDate": "Last Updated Date",
-    "item": {
+    "items": [{
       "title": "Episode Title",
       "link": "https://www.nts.live/{episode_path}",
       "description": "Episode description",
@@ -145,7 +145,7 @@ feed:
           "musicbrainz_track_id": "string (UUID or null)"
         }
       ]
-    }
+    }]
   }
 }
 ```
