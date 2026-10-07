@@ -6,8 +6,10 @@ import (
 	"net/http"
 
 	"github.com/aweigor/nts-feed-generator/config"
+	"github.com/aweigor/nts-feed-generator/internal/feeds"
 	"github.com/aweigor/nts-feed-generator/internal/heartbeat"
 	"github.com/aweigor/nts-feed-generator/pkg/middleware"
+	"github.com/aweigor/nts-feed-generator/pkg/ntsclient"
 )
 
 func NewApp() http.Handler {
@@ -18,6 +20,18 @@ func NewApp() http.Handler {
 
 	router := http.NewServeMux()
 	heartbeat.NewHeartbeatHandler(router, conf)
+
+	ntsClient, err := ntsclient.NewNTSClient(&conf.Nts)
+	if err != nil {
+		log.Fatalf("failed to initialize NTS client", err)
+	}
+
+	feeds.NewFeedsHandler(router, feeds.FeedsHandlerDeps{
+		NTSClient: ntsClient,
+		FeedsConfig: &config.FeedsConfig{
+			Nts: conf.Nts,
+		},
+	})
 
 	mwStack := middleware.Chain(middleware.CORS, middleware.Logging)
 

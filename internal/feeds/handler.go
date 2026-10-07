@@ -20,7 +20,8 @@ type FeedsHandlerDeps struct {
 
 func NewFeedsHandler(router *http.ServeMux, deps FeedsHandlerDeps) {
 	handler := &FeedsHandler{
-		NTSClient: deps.NTSClient,
+		NTSClient:   deps.NTSClient,
+		FeedsConfig: deps.FeedsConfig,
 	}
 	router.HandleFunc("/feeds/latest", handler.HandleLatest())
 	router.HandleFunc("/feeds/show/:showId", handler.HandleShow())
