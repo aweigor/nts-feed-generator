@@ -32,7 +32,7 @@ type Item struct {
 	GUID        string    `json:"guid"`
 	ShowID      string    `json:"nts:show_id"`
 	AirDate     string    `json:"nts:air_date"`
-	Duration    string    `json:"nts:duration"`
+	Duration    *int      `json:"nts:duration"`
 	Tracklist   []Track   `json:"tracklist"`
 }
 
@@ -40,7 +40,7 @@ type Item struct {
 type Enclosure struct {
 	URL    string `json:"url"`
 	Type   string `json:"type"`
-	Length string `json:"length"`
+	Length *int   `json:"length"`
 }
 
 // Track represents one track within an episode's tracklist.

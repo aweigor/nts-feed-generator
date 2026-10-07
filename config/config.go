@@ -18,6 +18,10 @@ type AuthConfig struct {
 	Secret string `mapstructure:"secret"`
 }
 
+type FeedsConfig struct {
+	Nts NtsAPIProperties
+}
+
 type NtsAPIProperties struct {
 	APIV2Url string `mapstructure:"api_v2_url"`
 }

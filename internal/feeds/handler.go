@@ -3,16 +3,19 @@ package feeds
 import (
 	"net/http"
 
+	"github.com/aweigor/nts-feed-generator/config"
 	"github.com/aweigor/nts-feed-generator/pkg/ntsclient"
 	"github.com/aweigor/nts-feed-generator/pkg/res"
 )
 
 type FeedsHandler struct {
 	*ntsclient.NTSClient
+	*config.FeedsConfig
 }
 
 type FeedsHandlerDeps struct {
 	*ntsclient.NTSClient
+	*config.FeedsConfig
 }
 
 func NewFeedsHandler(router *http.ServeMux, deps FeedsHandlerDeps) {
@@ -38,43 +41,50 @@ func (handler *FeedsHandler) HandleLatest() http.HandlerFunc {
 			},
 		}
 
-		res, err := handler.NTSClient.FetchLatest(r.Context(), searchParams)
+		episodes, err := handler.NTSClient.FetchLatest(r.Context(), searchParams)
 
 		channelItems := make([]Item, params.limit)
 
-		for i := range params.limit {
-			sourceData := res.Results[i]
+		for i := range len(episodes.Results) {
+			sourceData := episodes.Results[i]
 
 			channelItems[i] = Item{
 				Title:       sourceData.Title,
-				Link:        sourceData.AudioSources[0].URL,
-				Description: sourceData.Description,
+				Link:        handler.buildEpisodeLink(sourceData.Article.Path),
+				Description: "",
 				PubDate:     sourceData.LocalDate,
-				Enclosure:   "",
-				Duration:    "",
-				GUID:        "",
-				AirDate:     sourceData.LocalDate,
-				Duration:    "",
-				Tracklist:   []Track{},
+				Enclosure: Enclosure{
+					URL:    sourceData.AudioSources[0].URL,
+					Type:   sourceData.AudioSources[0].Source,
+					Length: nil,
+				},
+				Duration:  nil,
+				GUID:      "",
+				AirDate:   sourceData.LocalDate,
+				Tracklist: []Track{},
 			}
 		}
 
 		data := RSSResponse{
 			Channel{
 				Title: "Latest episodes",
-				Items: []Item{},
+				Items: channelItems,
 			},
 		}
 
 		switch format := params.format; format {
 		case "xml":
-			w.Header().Set("Content-Type", "application/xml")
+			res.Xml(w, data, 200)
 		case "json":
-			w.Header().Set("Content-Type", "application/json")
+			res.Json(w, data, 200)
 		}
 	}
 }
 
 func (handler *FeedsHandler) HandleShow() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {}
+}
+
+func (handler *FeedsHandler) buildEpisodeLink(articlePath string) string {
+	return handler.Nts.APIV2Url + articlePath
 }
