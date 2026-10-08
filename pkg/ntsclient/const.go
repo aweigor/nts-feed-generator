@@ -1,5 +1,6 @@
 package ntsclient
 
 const (
-	GetEpisodesPath = "/search/episodes"
+	GetLatestPath       = "/search/episodes"
+	GetShowEpisodesPath = "/shows/{show_id}/episodes"
 )

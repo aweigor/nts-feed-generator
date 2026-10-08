@@ -24,24 +24,18 @@ func NewFeedsHandler(router *http.ServeMux, deps FeedsHandlerDeps) {
 		FeedsConfig: deps.FeedsConfig,
 	}
 	router.HandleFunc("/feeds/latest", handler.HandleLatest())
-	router.HandleFunc("/feeds/show/:showId", handler.HandleShow())
+	router.HandleFunc("/feeds/show/{show_id}", handler.HandleShow())
 }
 
 func (handler *FeedsHandler) HandleLatest() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		queryParser := NewFeedsQueryParser()
-		params, err := queryParser.parseQuery(r.URL.Query())
+		queryParams, err := queryParser.parseQuery(r.URL.Query())
 		if err != nil {
 			res.Error(w, http.StatusBadRequest, err.Error())
 		}
 
-		searchParams := ntsclient.EpisodesSearchParams{
-			Page: ntsclient.PageQuery{
-				Offset: params.offset,
-				Limit:  params.limit,
-			},
-		}
-
+		searchParams := handler.buildEpisodesSearchParams(queryParams)
 		episodes, err := handler.NTSClient.FetchLatest(r.Context(), searchParams)
 
 		channelItems := make([]EpisodeItem, len(episodes.Results))
@@ -49,7 +43,7 @@ func (handler *FeedsHandler) HandleLatest() http.HandlerFunc {
 		for i := range len(episodes.Results) {
 			sourceData := episodes.Results[i]
 
-			channelItems[i] = handler.buildEpisodeItem(sourceData)
+			channelItems[i] = handler.buildEpisodeItem(&sourceData)
 		}
 
 		data := RSSResponse{
@@ -59,7 +53,7 @@ func (handler *FeedsHandler) HandleLatest() http.HandlerFunc {
 			},
 		}
 
-		switch format := params.format; format {
+		switch format := queryParams.format; format {
 		case "xml":
 			res.Xml(w, data, 200)
 		case "json":
@@ -69,14 +63,28 @@ func (handler *FeedsHandler) HandleLatest() http.HandlerFunc {
 }
 
 func (handler *FeedsHandler) HandleShow() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {}
+	return func(w http.ResponseWriter, r *http.Request) {
+		queryParser := NewFeedsQueryParser()
+		queryParams, err := queryParser.parseQuery(r.URL.Query())
+		if err != nil {
+			res.Error(w, http.StatusBadRequest, err.Error())
+		}
+
+		showID := r.PathValue("show_id")
+
+		if showID == "" {
+			res.Error(w, http.StatusBadRequest, "Expected show id in route path")
+		}
+
+		searchParams := handler.buildEpisodesSearchParams(queryParams)
+	}
 }
 
 func (handler *FeedsHandler) buildEpisodeLink(articlePath string) string {
 	return handler.Nts.APIV2Url + articlePath
 }
 
-func (handler *FeedsHandler) buildEpisodeItem(episodeInfo ntsclient.EpisodeInfo) EpisodeItem {
+func (handler *FeedsHandler) buildEpisodeItem(episodeInfo *ntsclient.EpisodeInfo) EpisodeItem {
 	return EpisodeItem{
 		Title:       episodeInfo.Title,
 		Link:        handler.buildEpisodeLink(episodeInfo.Article.Path),
@@ -91,5 +99,14 @@ func (handler *FeedsHandler) buildEpisodeItem(episodeInfo ntsclient.EpisodeInfo)
 		GUID:      "",
 		AirDate:   episodeInfo.LocalDate,
 		Tracklist: []Track{},
+	}
+}
+
+func (handler *FeedsHandler) buildEpisodesSearchParams(query *FeedsQueryParams) ntsclient.EpisodesSearchParams {
+	return ntsclient.EpisodesSearchParams{
+		Page: ntsclient.PageQuery{
+			Offset: query.offset,
+			Limit:  query.limit,
+		},
 	}
 }

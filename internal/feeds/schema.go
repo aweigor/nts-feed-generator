@@ -19,11 +19,11 @@ type Channel struct {
 	Category      string        `json:"category"`
 	Image         string        `json:"image"`
 	LastBuildDate string        `json:"lastBuildDate"`
-	Items         []ChannelItem `json:"item"`
+	Items         []EpisodeItem `json:"item"`
 }
 
 // Item represents a single episode of an NTS radio show.
-type ChannelItem struct {
+type EpisodeItem struct {
 	Title       string    `json:"title"`
 	Link        string    `json:"link"`
 	Description string    `json:"description"`

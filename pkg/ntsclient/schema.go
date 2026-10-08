@@ -1,9 +1,9 @@
 package ntsclient
 
 // Response is the top-level envelope returned by the API.
-type EpisodesResponse struct {
+type ArticlesResponse struct {
 	Metadata Metadata      `json:"metadata"`
-	Results  []EpisodeInfo `json:"results"`
+	Results  []ArticleInfo `json:"results"`
 }
 
 // Metadata wraps the pagination info for a response.
@@ -19,21 +19,21 @@ type Resultset struct {
 }
 
 // Result is a single item in the results list.
-type EpisodeInfo struct {
-	ArticleType    string        `json:"article_type"`
-	Title          string        `json:"title"`
-	Artists        []Artist      `json:"artists"`
-	Article        Article       `json:"article"`
-	AudioSources   []AudioSource `json:"audio_sources"`
-	Description    Description   `json:"description"`
-	Image          Image         `json:"image"`
-	RelatedEpisode *Episode      `json:"related_episode,omitempty"`
-	LocalDate      string        `json:"local_date"`
-	Location       string        `json:"location"`
-	Genres         []Genre       `json:"genres"`
-	Moods          []Mood        `json:"moods"`
-	TrackUID       *string       `json:"track_uid"`
-	Brand          *Brand        `json:"brand,omitempty"`
+type ArticleInfo struct {
+	ArticleType    string          `json:"article_type"`
+	Title          string          `json:"title"`
+	Artists        []Artist        `json:"artists"`
+	Article        Article         `json:"article"`
+	AudioSources   []AudioSource   `json:"audio_sources"`
+	Description    Description     `json:"description"`
+	Image          Image           `json:"image"`
+	RelatedEpisode *ArticleEpisode `json:"related_episode,omitempty"`
+	LocalDate      string          `json:"local_date"`
+	Location       string          `json:"location"`
+	Genres         []Genre         `json:"genres"`
+	Moods          []Mood          `json:"moods"`
+	TrackUID       *string         `json:"track_uid"`
+	Brand          *Brand          `json:"brand,omitempty"`
 }
 
 // Artist is a performer or contributor on a result.
@@ -69,8 +69,8 @@ type Image struct {
 	Thumb       string `json:"thumb"`
 }
 
-// Episode is a related episode reference.
-type Episode struct {
+// ArticleEpisode is a related episode reference.
+type ArticleEpisode struct {
 	Path string `json:"path"`
 }
 
@@ -92,4 +92,58 @@ type Brand struct {
 	Description string `json:"description"`
 	CTAURL      string `json:"cta_url"`
 	CTALabel    string `json:"cta_label"`
+}
+
+type EpisodesResponse struct {
+	Metadata Metadata      `json:"metadata"`
+	Results  []EpisodeInfo `json:"results"`
+}
+
+type EpisodeInfo struct {
+	Status          string        `json:"status"`
+	Updated         string        `json:"updated"`
+	Name            string        `json:"name"`
+	Description     string        `json:"description"`
+	DescriptionHTML string        `json:"description_html"`
+	ExternalLinks   []string      `json:"external_links"`
+	Moods           []Taxonomy    `json:"moods"`
+	Genres          []Taxonomy    `json:"genres"`
+	LocationShort   string        `json:"location_short"`
+	LocationLong    string        `json:"location_long"`
+	Intensity       string        `json:"intensity"`
+	Media           Media         `json:"media"`
+	EpisodeAlias    string        `json:"episode_alias"`
+	ShowAlias       string        `json:"show_alias"`
+	Broadcast       string        `json:"broadcast"`
+	Mixcloud        string        `json:"mixcloud"`
+	AudioSources    []AudioSource `json:"audio_sources"`
+	Brand           struct{}      `json:"brand"`  // {} in data
+	Embeds          struct{}      `json:"embeds"` // {} in data
+	Links           []Link        `json:"links"`
+}
+
+// Taxonomy covers both `moods` and `genres` — same shape:
+// { "id": "...", "value": "..." }.
+type Taxonomy struct {
+	ID    string `json:"id"`
+	Value string `json:"value"`
+}
+
+type Media struct {
+	BackgroundLarge       string `json:"background_large"`
+	BackgroundMediumLarge string `json:"background_medium_large"`
+	BackgroundMedium      string `json:"background_medium"`
+	BackgroundSmall       string `json:"background_small"`
+	BackgroundThumb       string `json:"background_thumb"`
+	PictureLarge          string `json:"picture_large"`
+	PictureMediumLarge    string `json:"picture_medium_large"`
+	PictureMedium         string `json:"picture_medium"`
+	PictureSmall          string `json:"picture_small"`
+	PictureThumb          string `json:"picture_thumb"`
+}
+
+type Link struct {
+	Rel  string `json:"rel"`
+	Href string `json:"href"`
+	Type string `json:"type"`
 }

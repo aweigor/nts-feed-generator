@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/aweigor/nts-feed-generator/config"
 )
@@ -25,9 +26,9 @@ func NewNTSClient(cfg *config.NtsAPIProperties) (*NTSClient, error) {
 	}, nil
 }
 
-func (client *NTSClient) FetchLatest(ctx context.Context, params EpisodesSearchParams) (*EpisodesResponse, error) {
-	queryString := "?" + buildEpisodesSearchQuery(params)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, client.baseUrl+GetEpisodesPath+queryString, nil)
+func (client *NTSClient) FetchLatest(ctx context.Context, params EpisodesSearchParams) (*ArticlesResponse, error) {
+	query := buildEpisodesSearchQuery(params)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, client.buildLatestEpisodesURL(query), nil)
 	if err != nil {
 		return nil, fmt.Errorf("ntsclient[FetchLatest]: build request: %w", err)
 	}
@@ -43,10 +44,37 @@ func (client *NTSClient) FetchLatest(ctx context.Context, params EpisodesSearchP
 		return nil, fmt.Errorf("ntsclient[FetchLatest]: bad status %d", resp.StatusCode)
 	}
 
-	var out EpisodesResponse
+	var out ArticlesResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
 		return nil, fmt.Errorf("ntsclient[FetchLatest]: unmarschall response error: %w", err)
 	}
 
 	return &out, err
+}
+
+func (client *NTSClient) FetchShowEpisodes(ctx context.Context, showId string, params EpisodesSearchParams) (*EpisodesResponse, error) {
+	query := buildEpisodesSearchQuery(params)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.buildShowEpisodesURL(showId, query), nil)
+
+	request.Header.Set("Accept", "application/json")
+
+	response, err := client.httpClient.Do(request)
+
+	defer response.Body.Close()
+
+	var out EpisodesResponse
+	if err := json.NewDecoder(response.Body).Decode(&out); err != nil {
+		return nil, fmt.Errorf("ntsclient[FetchShowEpisodes]: unmarschall response error", err)
+	}
+
+	return &out, err
+}
+
+func (client *NTSClient) buildShowEpisodesURL(showId string, urlQuery string) string {
+	urlPath := strings.ReplaceAll(GetShowEpisodesPath, "{show_id}", showId)
+	return fmt.Sprintf("%s%s?%s", client.baseUrl, urlPath, urlQuery)
+}
+
+func (client *NTSClient) buildLatestEpisodesURL(urlQuery string) string {
+	return fmt.Sprintf("%s%s?%s", client.baseUrl, GetLatestPath, urlQuery)
 }
