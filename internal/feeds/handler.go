@@ -44,26 +44,12 @@ func (handler *FeedsHandler) HandleLatest() http.HandlerFunc {
 
 		episodes, err := handler.NTSClient.FetchLatest(r.Context(), searchParams)
 
-		channelItems := make([]Item, params.limit)
+		channelItems := make([]EpisodeItem, len(episodes.Results))
 
 		for i := range len(episodes.Results) {
 			sourceData := episodes.Results[i]
 
-			channelItems[i] = Item{
-				Title:       sourceData.Title,
-				Link:        handler.buildEpisodeLink(sourceData.Article.Path),
-				Description: "",
-				PubDate:     sourceData.LocalDate,
-				Enclosure: Enclosure{
-					URL:    sourceData.AudioSources[0].URL,
-					Type:   sourceData.AudioSources[0].Source,
-					Length: nil,
-				},
-				Duration:  nil,
-				GUID:      "",
-				AirDate:   sourceData.LocalDate,
-				Tracklist: []Track{},
-			}
+			channelItems[i] = handler.buildEpisodeItem(sourceData)
 		}
 
 		data := RSSResponse{
@@ -88,4 +74,22 @@ func (handler *FeedsHandler) HandleShow() http.HandlerFunc {
 
 func (handler *FeedsHandler) buildEpisodeLink(articlePath string) string {
 	return handler.Nts.APIV2Url + articlePath
+}
+
+func (handler *FeedsHandler) buildEpisodeItem(episodeInfo ntsclient.EpisodeInfo) EpisodeItem {
+	return EpisodeItem{
+		Title:       episodeInfo.Title,
+		Link:        handler.buildEpisodeLink(episodeInfo.Article.Path),
+		Description: "",
+		PubDate:     episodeInfo.LocalDate,
+		Enclosure: Enclosure{
+			URL:    episodeInfo.AudioSources[0].URL,
+			Type:   episodeInfo.AudioSources[0].Source,
+			Length: nil,
+		},
+		Duration:  nil,
+		GUID:      "",
+		AirDate:   episodeInfo.LocalDate,
+		Tracklist: []Track{},
+	}
 }

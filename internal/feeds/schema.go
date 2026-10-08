@@ -13,17 +13,17 @@ type RSSResponse struct {
 
 // Channel represents a single NTS radio channel.
 type Channel struct {
-	Title         string `json:"title"`
-	Link          string `json:"link"`
-	Description   string `json:"description"`
-	Category      string `json:"category"`
-	Image         string `json:"image"`
-	LastBuildDate string `json:"lastBuildDate"`
-	Items         []Item `json:"item"`
+	Title         string        `json:"title"`
+	Link          string        `json:"link"`
+	Description   string        `json:"description"`
+	Category      string        `json:"category"`
+	Image         string        `json:"image"`
+	LastBuildDate string        `json:"lastBuildDate"`
+	Items         []ChannelItem `json:"item"`
 }
 
 // Item represents a single episode of an NTS radio show.
-type Item struct {
+type ChannelItem struct {
 	Title       string    `json:"title"`
 	Link        string    `json:"link"`
 	Description string    `json:"description"`
