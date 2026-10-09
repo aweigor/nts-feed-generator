@@ -3,11 +3,14 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 
 	"github.com/aweigor/nts-feed-generator/config"
 	"github.com/aweigor/nts-feed-generator/internal/feeds"
 	"github.com/aweigor/nts-feed-generator/internal/heartbeat"
+	"github.com/aweigor/nts-feed-generator/pkg/logger"
 	"github.com/aweigor/nts-feed-generator/pkg/middleware"
 	"github.com/aweigor/nts-feed-generator/pkg/ntsclient"
 )
@@ -17,6 +20,9 @@ func NewApp() http.Handler {
 	if err != nil {
 		log.Fatalf("failed to load config: %v", err)
 	}
+
+	slogLogger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	logger := logger.NewLogger(slogLogger)
 
 	router := http.NewServeMux()
 	heartbeat.NewHeartbeatHandler(router, conf)
@@ -31,6 +37,7 @@ func NewApp() http.Handler {
 		FeedsConfig: &config.FeedsConfig{
 			Nts: conf.Nts,
 		},
+		Logger: logger,
 	})
 
 	mwStack := middleware.Chain(middleware.CORS, middleware.Logging)

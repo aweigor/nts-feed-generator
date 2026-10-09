@@ -6,24 +6,29 @@ import (
 	"strings"
 
 	"github.com/aweigor/nts-feed-generator/config"
+	"github.com/aweigor/nts-feed-generator/pkg/logger"
 	"github.com/aweigor/nts-feed-generator/pkg/ntsclient"
 	"github.com/aweigor/nts-feed-generator/pkg/res"
+	"github.com/google/uuid"
 )
 
 type FeedsHandler struct {
 	*ntsclient.NTSClient
 	*config.FeedsConfig
+	*logger.Logger
 }
 
 type FeedsHandlerDeps struct {
 	*ntsclient.NTSClient
 	*config.FeedsConfig
+	*logger.Logger
 }
 
 func NewFeedsHandler(router *http.ServeMux, deps FeedsHandlerDeps) {
 	handler := &FeedsHandler{
 		NTSClient:   deps.NTSClient,
 		FeedsConfig: deps.FeedsConfig,
+		Logger:      deps.Logger,
 	}
 	router.HandleFunc("/feeds/latest", handler.HandleLatest())
 	router.HandleFunc("/feeds/show/{show_id}", handler.HandleShow())
@@ -31,6 +36,8 @@ func NewFeedsHandler(router *http.ServeMux, deps FeedsHandlerDeps) {
 
 func (handler *FeedsHandler) HandleLatest() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := logger.WithRequestID(r.Context(), uuid.NewString())
+
 		queryParser := NewFeedsQueryParser()
 		queryParams, err := queryParser.parseQuery(r.URL.Query())
 		if err != nil {
@@ -39,6 +46,10 @@ func (handler *FeedsHandler) HandleLatest() http.HandlerFunc {
 
 		searchParams := handler.buildEpisodesSearchParams(queryParams)
 		episodes, err := handler.NTSClient.FetchLatest(r.Context(), searchParams)
+		if err != nil {
+			handler.Logger.Error(ctx, err.Error())
+			res.Error(w, 500, err.Error())
+		}
 
 		channelItems := make([]ChannelItem, len(episodes.Results))
 
@@ -65,6 +76,8 @@ func (handler *FeedsHandler) HandleLatest() http.HandlerFunc {
 
 func (handler *FeedsHandler) HandleShow() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		ctx := logger.WithRequestID(r.Context(), uuid.NewString())
+
 		queryParser := NewFeedsQueryParser()
 		queryParams, err := queryParser.parseQuery(r.URL.Query())
 		if err != nil {
@@ -79,6 +92,10 @@ func (handler *FeedsHandler) HandleShow() http.HandlerFunc {
 
 		searchParams := handler.buildEpisodesSearchParams(queryParams)
 		episodes, err := handler.NTSClient.FetchShowEpisodes(r.Context(), showID, searchParams)
+		if err != nil {
+			handler.Logger.Error(ctx, err.Error())
+			res.Error(w, 500, err.Error())
+		}
 
 		channelItems := make([]ChannelItem, len(episodes.Results))
 
