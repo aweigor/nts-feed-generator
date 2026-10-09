@@ -1,7 +1,9 @@
 package feeds
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/aweigor/nts-feed-generator/config"
 	"github.com/aweigor/nts-feed-generator/pkg/ntsclient"
@@ -38,12 +40,11 @@ func (handler *FeedsHandler) HandleLatest() http.HandlerFunc {
 		searchParams := handler.buildEpisodesSearchParams(queryParams)
 		episodes, err := handler.NTSClient.FetchLatest(r.Context(), searchParams)
 
-		channelItems := make([]EpisodeItem, len(episodes.Results))
+		channelItems := make([]ChannelItem, len(episodes.Results))
 
 		for i := range len(episodes.Results) {
 			sourceData := episodes.Results[i]
-
-			channelItems[i] = handler.buildEpisodeItem(&sourceData)
+			channelItems[i] = handler.channelItemFromArticle(&sourceData)
 		}
 
 		data := RSSResponse{
@@ -77,28 +78,79 @@ func (handler *FeedsHandler) HandleShow() http.HandlerFunc {
 		}
 
 		searchParams := handler.buildEpisodesSearchParams(queryParams)
+		episodes, err := handler.NTSClient.FetchShowEpisodes(r.Context(), showID, searchParams)
+
+		channelItems := make([]ChannelItem, len(episodes.Results))
+
+		for i := range len(episodes.Results) {
+			sourceData := episodes.Results[i]
+			channelItems[i] = handler.channelItemFromEpisode(&sourceData)
+		}
+
+		data := RSSResponse{
+			Channel: Channel{
+				Title: fmt.Sprintf("%s %s", showID, "shows"),
+				Items: channelItems,
+			},
+		}
+
+		switch format := queryParams.format; format {
+		case "xml":
+			res.Xml(w, data, 200)
+		case "json":
+			res.Json(w, data, 200)
+		}
 	}
 }
 
-func (handler *FeedsHandler) buildEpisodeLink(articlePath string) string {
-	return handler.Nts.APIV2Url + articlePath
+func (handler *FeedsHandler) buildEpisodeLinkFromArticle(articlePath string) string {
+	return fmt.Sprintf("%s/%s", handler.Nts.APIV2Url, articlePath)
 }
 
-func (handler *FeedsHandler) buildEpisodeItem(episodeInfo *ntsclient.EpisodeInfo) EpisodeItem {
-	return EpisodeItem{
-		Title:       episodeInfo.Title,
-		Link:        handler.buildEpisodeLink(episodeInfo.Article.Path),
+func (handler *FeedsHandler) buildEpisodeLinkFromEpisode(showID string, episodeAlias string) string {
+	urlPath := strings.ReplaceAll(ntsclient.GetShowEpisodesPath, "{show_id}", showID)
+	return fmt.Sprintf("%s/%s/%s", handler.Nts.APIV2Url, urlPath, episodeAlias)
+}
+
+func (handler *FeedsHandler) channelItemFromArticle(articleInfo *ntsclient.ArticleInfo) ChannelItem {
+	enclosure := Enclosure{}
+
+	if len(articleInfo.AudioSources) > 0 {
+		enclosure.URL = articleInfo.AudioSources[0].URL
+		enclosure.Type = articleInfo.AudioSources[0].Source
+	}
+
+	return ChannelItem{
+		Title:       articleInfo.Title,
+		Link:        handler.buildEpisodeLinkFromArticle(articleInfo.Article.Path),
 		Description: "",
-		PubDate:     episodeInfo.LocalDate,
-		Enclosure: Enclosure{
-			URL:    episodeInfo.AudioSources[0].URL,
-			Type:   episodeInfo.AudioSources[0].Source,
-			Length: nil,
-		},
-		Duration:  nil,
-		GUID:      "",
-		AirDate:   episodeInfo.LocalDate,
-		Tracklist: []Track{},
+		PubDate:     articleInfo.LocalDate,
+		Enclosure:   enclosure,
+		Duration:    nil,
+		GUID:        "",
+		AirDate:     articleInfo.LocalDate,
+		Tracklist:   []Track{},
+	}
+}
+
+func (handler *FeedsHandler) channelItemFromEpisode(episodeInfo *ntsclient.EpisodeInfo) ChannelItem {
+	enclosure := Enclosure{}
+
+	if len(episodeInfo.AudioSources) > 0 {
+		enclosure.URL = episodeInfo.AudioSources[0].URL
+		enclosure.Type = episodeInfo.AudioSources[0].Source
+	}
+
+	return ChannelItem{
+		Title:       episodeInfo.Name,
+		Link:        handler.buildEpisodeLinkFromEpisode(episodeInfo.ShowAlias, episodeInfo.EpisodeAlias),
+		Description: episodeInfo.Description,
+		PubDate:     episodeInfo.Updated,
+		Enclosure:   enclosure,
+		Duration:    nil,
+		GUID:        "",
+		AirDate:     episodeInfo.Broadcast,
+		Tracklist:   []Track{},
 	}
 }
 
