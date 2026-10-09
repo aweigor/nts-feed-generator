@@ -30,23 +30,23 @@ func (client *NTSClient) FetchLatest(ctx context.Context, params EpisodesSearchP
 	query := buildEpisodesSearchQuery(params)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, client.buildLatestEpisodesURL(query), nil)
 	if err != nil {
-		return nil, fmt.Errorf("ntsclient[FetchLatest]: build request: %w", err)
+		return nil, err
 	}
 	req.Header.Set("Accept", "application/json")
 
 	resp, err := client.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("ntsclient[FetchLatest]: do request: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("ntsclient[FetchLatest]: bad status %d", resp.StatusCode)
+		return nil, fmt.Errorf("request failed", resp.Status)
 	}
 
 	var out ArticlesResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("ntsclient[FetchLatest]: unmarschall response error: %w", err)
+		return nil, err
 	}
 
 	return &out, err
@@ -54,17 +54,26 @@ func (client *NTSClient) FetchLatest(ctx context.Context, params EpisodesSearchP
 
 func (client *NTSClient) FetchShowEpisodes(ctx context.Context, showId string, params EpisodesSearchParams) (*EpisodesResponse, error) {
 	query := buildEpisodesSearchQuery(params)
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, client.buildShowEpisodesURL(showId, query), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, client.buildShowEpisodesURL(showId, query), nil)
+	if err != nil {
+		return nil, err
+	}
 
-	request.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", "application/json")
 
-	response, err := client.httpClient.Do(request)
+	resp, err := client.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
 
-	defer response.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("request failed", resp.Status)
+	}
 
 	var out EpisodesResponse
-	if err := json.NewDecoder(response.Body).Decode(&out); err != nil {
-		return nil, fmt.Errorf("ntsclient[FetchShowEpisodes]: unmarschall response error", err)
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return nil, err
 	}
 
 	return &out, err
