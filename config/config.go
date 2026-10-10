@@ -12,6 +12,8 @@ type Config struct {
 	Nts    NtsAPIProperties
 	Server ServerProperties
 	Auth   AuthConfig
+	Feeds  FeedsConfig
+	Shows  ShowsConfig
 }
 
 type AuthConfig struct {
@@ -19,6 +21,10 @@ type AuthConfig struct {
 }
 
 type FeedsConfig struct {
+	Nts NtsAPIProperties
+}
+
+type ShowsConfig struct {
 	Nts NtsAPIProperties
 }
 
