@@ -1,5 +1,7 @@
 package ntsclient
 
+import "time"
+
 // Response is the top-level envelope returned by the API.
 type ArticlesResponse struct {
 	Metadata Metadata      `json:"metadata"`
@@ -146,4 +148,55 @@ type Link struct {
 	Rel  string `json:"rel"`
 	Href string `json:"href"`
 	Type string `json:"type"`
+}
+
+type Episode struct {
+	Status          string        `json:"status"`
+	Updated         time.Time     `json:"updated"`
+	Name            string        `json:"name"`
+	Description     string        `json:"description"`
+	DescriptionHTML string        `json:"description_html"`
+	ExternalLinks   []string      `json:"external_links"`
+	Moods           []Taxonomy    `json:"moods"`
+	Genres          []Taxonomy    `json:"genres"`
+	LocationShort   string        `json:"location_short"`
+	LocationLong    string        `json:"location_long"`
+	Intensity       string        `json:"intensity"`
+	Media           Media         `json:"media"`
+	EpisodeAlias    string        `json:"episode_alias"`
+	ShowAlias       string        `json:"show_alias"`
+	Broadcast       time.Time     `json:"broadcast"`
+	Mixcloud        string        `json:"mixcloud"`
+	AudioSources    []AudioSource `json:"audio_sources"`
+	Brand           Brand         `json:"brand"`
+	Embeds          EpisodeEmbeds `json:"embeds"`
+	Links           []Link        `json:"links"`
+}
+
+type EpisodeEmbeds struct {
+	Tracklist Tracklist `json:"tracklist"`
+}
+
+type Tracklist struct {
+	Metadata TracklistMetadata `json:"metadata"`
+	Results  []Track           `json:"results"`
+	Links    []Link            `json:"links"`
+}
+
+type TracklistMetadata struct {
+	Resultset Resultset `json:"resultset"`
+}
+
+type Track struct {
+	Artist             string  `json:"artist"`
+	Title              string  `json:"title"`
+	UID                *string `json:"uid"`
+	Offset             *int    `json:"offset"`
+	Duration           *int    `json:"duration"`
+	OffsetEstimate     *int    `json:"offset_estimate"`
+	DurationEstimate   *int    `json:"duration_estimate"`
+	ACRID              *string `json:"acr_id"`
+	DeezerTrackID      *int64  `json:"deezer_track_id"`
+	ISRCID             *string `json:"isrc_id"`
+	MusicBrainzTrackID *string `json:"musicbrainz_track_id"`
 }
