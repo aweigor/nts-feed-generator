@@ -81,9 +81,9 @@ func (client *NTSClient) FetchShowEpisodes(ctx context.Context, showId string, p
 
 func (client *NTSClient) buildShowEpisodesURL(showId string, urlQuery string) string {
 	urlPath := strings.ReplaceAll(GetShowEpisodesPath, "{show_id}", showId)
-	return fmt.Sprintf("%s/%s?%s", client.baseUrl, urlPath, urlQuery)
+	return fmt.Sprintf("%s%s?%s", client.baseUrl, urlPath, urlQuery)
 }
 
 func (client *NTSClient) buildLatestEpisodesURL(urlQuery string) string {
-	return fmt.Sprintf("%s/%s?%s", client.baseUrl, GetLatestPath, urlQuery)
+	return fmt.Sprintf("%s%s?%s", client.baseUrl, GetLatestPath, urlQuery)
 }

@@ -3,6 +3,7 @@ package feeds
 import (
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 
 	"github.com/aweigor/nts-feed-generator/config"
@@ -121,12 +122,16 @@ func (handler *FeedsHandler) HandleShow() http.HandlerFunc {
 }
 
 func (handler *FeedsHandler) buildEpisodeLinkFromArticle(articlePath string) string {
-	return fmt.Sprintf("%s/%s", handler.Nts.APIV2Url, articlePath)
+	return fmt.Sprintf("%s%s", handler.Nts.APIV2Url, articlePath)
 }
 
 func (handler *FeedsHandler) buildEpisodeLinkFromEpisode(showID string, episodeAlias string) string {
 	urlPath := strings.ReplaceAll(ntsclient.GetShowEpisodesPath, "{show_id}", showID)
-	return fmt.Sprintf("%s/%s/%s", handler.Nts.APIV2Url, urlPath, episodeAlias)
+	return fmt.Sprintf("%s%s/%s", handler.Nts.APIV2Url, urlPath, episodeAlias)
+}
+
+func (handler *FeedsHandler) getShowIdFromArticlePath(articlePath string) string {
+	return path.Base(articlePath)
 }
 
 func (handler *FeedsHandler) channelItemFromArticle(articleInfo *ntsclient.ArticleInfo) ChannelItem {
@@ -147,6 +152,7 @@ func (handler *FeedsHandler) channelItemFromArticle(articleInfo *ntsclient.Artic
 		GUID:        "",
 		AirDate:     articleInfo.LocalDate,
 		Tracklist:   []Track{},
+		ShowID:      handler.getShowIdFromArticlePath(articleInfo.Article.Path),
 	}
 }
 
@@ -168,6 +174,7 @@ func (handler *FeedsHandler) channelItemFromEpisode(episodeInfo *ntsclient.Episo
 		GUID:        "",
 		AirDate:     episodeInfo.Broadcast,
 		Tracklist:   []Track{},
+		ShowID:      episodeInfo.EpisodeAlias,
 	}
 }
 
